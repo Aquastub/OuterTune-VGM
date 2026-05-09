@@ -27,8 +27,32 @@ jobs:
       - name: Accept SDK licenses
         run: yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
 
+      - name: Setup CMake
+        run: yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --install "cmake;3.22.1"
+
+      - name: Initialize VGM submodules
+        run: |
+          cd app/src/main/cpp
+          bash init_submodules.sh
+          git submodule update --init --recursive
+
+      - name: Apply VGM patches
+        run: |
+          cd app/src/main/cpp
+          bash prepare_libvgm_source.sh
+          bash prepare_libkss_source.sh
+
       - name: Build debug APK and run jvm tests
         run: ./gradlew assembleCoreDebug lintCoreDebug testCoreDebugUnitTest --stacktrace -DskipFormatKtlint
+
+      - name: Verify VGM native library
+        run: |
+          if unzip -l app/build/outputs/apk/core/debug/*.apk | grep -q "libvgmplayer.so"; then
+            echo "✅ VGM native library found in APK"
+            unzip -l app/build/outputs/apk/core/debug/*.apk | grep libvgmplayer
+          else
+            echo "⚠️ VGM native library not found in APK"
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
